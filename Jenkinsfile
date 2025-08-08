@@ -8,7 +8,7 @@ pipeline {
     }
     stage('Push Image to DockerHub') {
       steps {
-        bat 'docker login -u your_dockerhub_username -p your_password'
+        bat 'docker login -u harsh -p Harsh@2345'
         bat 'docker push harsh601/starbucks-clone:latest'
       }
     }
