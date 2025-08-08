@@ -1,0 +1,14 @@
+# Ignore Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Ignore terraform cache and state files
+.terraform/
+infra/.terraform/
+
+# Ignore private keys
+*.pem
+
+# Ignore IDE/editor files
+.vscode/
+*.log

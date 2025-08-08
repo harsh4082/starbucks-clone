@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: starbucks-app
+  namespace: starbucks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: starbucks-app
+  template:
+    metadata:
+      labels:
+        app: starbucks-app
+    spec:
+      containers:
+      - name: starbucks-app
+        image: harsh601/starbucks-clone:latest # replace with your actual image
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: "20m"        # only 5% of CPU
+            memory: "32Mi"   # 64 MB RAM
+          limits:
+            cpu: "100m"      # max 20% of CPU
+            memory: "64Mi"  # max 128 MB RAM
+    

@@ -1,0 +1,7 @@
+# Build Docker image
+docker build -t harsh601/starbucks-clone .
+
+# Run locally
+docker run -d -p 3000:80 harsh601/starbucks-clone
+
+# Visit: http://localhost:3000
