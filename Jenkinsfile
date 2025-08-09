@@ -31,7 +31,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
+                withSonarQubeEnv('SonarQube') {
                     bat """
                         sonar-scanner ^
                         -Dsonar.projectKey=starbucks-clone ^
