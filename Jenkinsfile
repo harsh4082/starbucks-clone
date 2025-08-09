@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKERHUB_CREDENTIALS = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7') // Your Docker Hub credentials ID
-        SONARQUBE_ENV = credentials('sonarqube-token') // Jenkins credential for SonarQube token
+        SONARQUBE_ENV = credentials('SonarScanner') // Jenkins credential for SonarQube token
     }
     stages {
         stage('Build Docker Image') {
