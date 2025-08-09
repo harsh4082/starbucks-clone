@@ -18,8 +18,6 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
-                bat 'mkdir reports'
-                bat 'mkdir reports\\owasp'
                 bat '''
                     dependency-check.bat --project "Starbucks Clone" --scan . --format "HTML" --out reports/owasp
                 '''
@@ -30,6 +28,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('SonarQube Analysis') {
             steps {
