@@ -35,7 +35,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('My SonarQube Server') { // Name from Jenkins SonarQube config
+                withSonarQubeEnv('SonarQube-Local') { // Name from Jenkins SonarQube config
                     bat """
                         sonar-scanner.bat ^
                         -Dsonar.projectKey=starbucks-clone ^
