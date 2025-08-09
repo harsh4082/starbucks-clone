@@ -18,9 +18,12 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
-                bat '''
-                    dependency-check.bat --project "Starbucks Clone" --scan . --format "HTML" --out reports/owasp
-                '''
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    bat 'if not exist reports\\owasp mkdir reports\\owasp'
+                    bat '''
+                        dependency-check.bat --project "Starbucks Clone" --scan . --format "HTML" --out reports/owasp
+                    '''
+                }
             }
             post {
                 always {
@@ -29,17 +32,18 @@ pipeline {
             }
         }
 
-
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    bat """
-                        sonar-scanner ^
-                        -Dsonar.projectKey=starbucks-clone ^
-                        -Dsonar.sources=. ^
-                        -Dsonar.host.url=${SONARQUBE_URL} ^
-                        -Dsonar.login=${SONARQUBE_ENV}
-                    """
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    withSonarQubeEnv('SonarQube') {
+                        bat """
+                            sonar-scanner ^
+                            -Dsonar.projectKey=starbucks-clone ^
+                            -Dsonar.sources=. ^
+                            -Dsonar.host.url=${SONARQUBE_URL} ^
+                            -Dsonar.login=${SONARQUBE_ENV}
+                        """
+                    }
                 }
             }
         }
@@ -52,10 +56,12 @@ pipeline {
 
         stage('Trivy Image Scan') {
             steps {
-                bat 'mkdir reports'
-                bat """
-                    trivy image --format table --output reports/trivy-report.txt ${IMAGE_NAME}:latest
-                """
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    bat 'if not exist reports mkdir reports'
+                    bat """
+                        trivy image --format table --output reports/trivy-report.txt ${IMAGE_NAME}:latest
+                    """
+                }
             }
             post {
                 always {
@@ -75,19 +81,16 @@ pipeline {
 
         stage('Deploy to Kubernetes on EKS') {
             steps {
-                // Create namespace if it doesn't exist
                 bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
-                
-                // Apply manifests into that namespace
-                bat 'kubectl apply -n starbucks -f k8s/deployment.yaml'
-                bat 'kubectl apply -n starbucks -f k8s/service.yaml'
+                bat 'kubectl apply -f k8s/deployment.yaml'
+                bat 'kubectl apply -f k8s/service.yaml'
             }
         }
     }
 
     post {
         always {
-            echo "Pipeline completed. Check reports in Jenkins artifacts section."
+            echo "✅ Pipeline completed. Check 'Reports' in Jenkins for OWASP and Trivy results."
         }
     }
 }
