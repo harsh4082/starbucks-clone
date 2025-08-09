@@ -18,6 +18,8 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
+                bat 'mkdir reports'
+                bat 'mkdir reports\\owasp'
                 bat '''
                     dependency-check.bat --project "Starbucks Clone" --scan . --format "HTML" --out reports/owasp
                 '''
@@ -51,6 +53,7 @@ pipeline {
 
         stage('Trivy Image Scan') {
             steps {
+                bat 'mkdir reports'
                 bat """
                     trivy image --format table --output reports/trivy-report.txt ${IMAGE_NAME}:latest
                 """
@@ -73,8 +76,12 @@ pipeline {
 
         stage('Deploy to Kubernetes on EKS') {
             steps {
-                bat 'kubectl apply -f k8s/deployment.yaml'
-                bat 'kubectl apply -f k8s/service.yaml'
+                // Create namespace if it doesn't exist
+                bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
+                
+                // Apply manifests into that namespace
+                bat 'kubectl apply -n starbucks -f k8s/deployment.yaml'
+                bat 'kubectl apply -n starbucks -f k8s/service.yaml'
             }
         }
     }
