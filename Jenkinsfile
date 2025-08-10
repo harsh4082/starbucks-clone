@@ -90,7 +90,7 @@ pipeline {
 
     post {
         always {
-            echo "✅ Pipeline completed. Check 'Reports' in Jenkins for OWASP and Trivy results."
+            echo "Pipeline completed. Check 'Reports' in Jenkins for OWASP and Trivy results."
         }
     }
 }
