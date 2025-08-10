@@ -2,9 +2,6 @@ provider "aws" {
   region = var.region
 }
 
-# ----------------------
-# VPC with Public Subnets
-# ----------------------
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -41,9 +38,7 @@ resource "aws_route_table_association" "public_assoc" {
   route_table_id = aws_route_table.public.id
 }
 
-# ----------------------
-# IAM Roles for EKS
-# ----------------------
+
 resource "aws_iam_role" "eks_cluster" {
   name = "eks-cluster-role"
 
