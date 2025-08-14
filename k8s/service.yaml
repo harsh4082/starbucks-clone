@@ -5,9 +5,10 @@ metadata:
   namespace: starbucks
 spec:
   selector:
-    app: starbucks-app       # This must match your pod label exactly
+    app: starbucks-app
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80       # Matches containerPort in deployment
-  type: LoadBalancer
+      targetPort: 80
+      nodePort: 30080
+  type: NodePort

@@ -12,3 +12,8 @@ infra/.terraform/
 # Ignore IDE/editor files
 .vscode/
 *.log
+
+/node_modules
+
+/.scannerwork
+/coverage

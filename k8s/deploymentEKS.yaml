@@ -15,8 +15,7 @@ spec:
     spec:
       containers:
       - name: starbucks-app
-        image: harsh601/starbucks-clone:latest   # Jenkins will update this via kubectl set image
-        imagePullPolicy: IfNotPresent
+        image: harsh601/starbucks-clone:latest
         ports:
         - containerPort: 80
         resources:
