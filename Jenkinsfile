@@ -68,11 +68,27 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image (full rebuild)') {
-      steps {
-        bat "docker build --no-cache -t ${env.FULL_IMAGE} ."
-      }
+    stage('Prepare image tag') {
+    steps {
+        script {
+        // Capture Git short commit without extra output
+        def shortCommit = bat(script: 'git rev-parse --short=7 HEAD', returnStdout: true)
+                            .trim()
+                            .split("\r?\n")
+                            .last()
+        env.IMAGE_TAG = shortCommit
+        env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+        echo "Image will be: ${env.FULL_IMAGE}"
+        }
     }
+    }
+
+    stage('Build Docker Image (full rebuild)') {
+    steps {
+        bat "docker build --no-cache -t \"${env.FULL_IMAGE}\" ."
+    }
+    }
+
 
     stage('Trivy Image Scan') {
       steps {
