@@ -19,7 +19,11 @@ pipeline {
     stage('Prepare image tag') {
       steps {
         script {
-          def shortCommit = bat(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
+          // Capture Git short commit without extra output (Windows-safe)
+          def shortCommit = bat(script: 'git rev-parse --short=7 HEAD', returnStdout: true)
+                            .trim()
+                            .split("\r?\n")
+                            .last()
           env.IMAGE_TAG = shortCommit
           env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
           echo "Image will be: ${env.FULL_IMAGE}"
@@ -61,6 +65,7 @@ pipeline {
       steps {
         timeout(time: 3, unit: 'MINUTES') {
           script {
+            // Continue pipeline regardless of quality gate result
             def qg = waitForQualityGate abortPipeline: false
             echo "Quality Gate status: ${qg.status} — continuing regardless of result."
           }
@@ -68,27 +73,11 @@ pipeline {
       }
     }
 
-    stage('Prepare image tag') {
-    steps {
-        script {
-        // Capture Git short commit without extra output
-        def shortCommit = bat(script: 'git rev-parse --short=7 HEAD', returnStdout: true)
-                            .trim()
-                            .split("\r?\n")
-                            .last()
-        env.IMAGE_TAG = shortCommit
-        env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-        echo "Image will be: ${env.FULL_IMAGE}"
-        }
-    }
-    }
-
     stage('Build Docker Image (full rebuild)') {
-    steps {
+      steps {
         bat "docker build --no-cache -t \"${env.FULL_IMAGE}\" ."
+      }
     }
-    }
-
 
     stage('Trivy Image Scan') {
       steps {
