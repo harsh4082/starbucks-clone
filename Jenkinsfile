@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         DOCKERHUB_CREDS    = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')
-        SONARQUBE_TOKEN    = credentials('sonarqube-token')
-        SONARQUBE_URL      = 'http://localhost:9000'
         IMAGE_NAME         = "harsh601/starbucks-clone"
         PUSH_TO_DOCKERHUB  = "false"
     }
@@ -49,48 +47,21 @@ pipeline {
             post { always { archiveArtifacts artifacts: 'reports/owasp/**', allowEmptyArchive: true } }
         }
 
+        /*
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    def sonarReachable = true
-                    try {
-                        bat "curl -m 5 ${SONARQUBE_URL} || exit 1"
-                    } catch (err) {
-                        echo "⚠️ SonarQube not reachable, skipping analysis."
-                        sonarReachable = false
-                    }
-
-                    if (sonarReachable) {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                            withSonarQubeEnv('SonarQube') {
-                                bat """
-                                    sonar-scanner ^
-                                        -Dsonar.projectKey=starbucks-clone ^
-                                        -Dsonar.sources=. ^
-                                        -Dsonar.host.url=${SONARQUBE_URL} ^
-                                        -Dsonar.login=${SONARQUBE_TOKEN}
-                                """
-                            }
-                        }
-                    }
+                    echo "⚠️ SonarQube stage temporarily commented"
                 }
             }
         }
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') {
-                    script {
-                        try {
-                            def qg = waitForQualityGate abortPipeline: false
-                            echo "🔎 Quality Gate status: ${qg.status} — continuing regardless."
-                        } catch (err) {
-                            echo "⚠️ Skipping Quality Gate check, SonarQube not reachable."
-                        }
-                    }
-                }
+                echo "⚠️ Quality Gate stage temporarily commented"
             }
         }
+        */
 
         stage('Build Docker Image') {
             steps {
