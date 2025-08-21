@@ -2,14 +2,24 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_CREDS = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')   // DockerHub credentials ID
-    SONARQUBE_TOKEN = credentials('sonarqube-token')                       // SonarQube token ID in Jenkins
-    SONARQUBE_URL   = 'http://localhost:9000'
-    IMAGE_NAME      = "harsh601/starbucks-clone"
+    DOCKERHUB_CREDS   = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')   // DockerHub credentials ID
+    SONARQUBE_TOKEN   = credentials('sonarqube-token')                       // SonarQube token ID in Jenkins
+    SONARQUBE_URL     = 'http://localhost:9000'
+    IMAGE_NAME        = "harsh601/starbucks-clone"
     PUSH_TO_DOCKERHUB = "false"   // Change to "true" if you want auto-push
   }
 
   stages {
+    stage('Clean Workspace') {
+      steps {
+        // Option 1 (built-in, works without plugin)
+        deleteDir()
+
+        // Option 2 (if Workspace Cleanup Plugin is installed, safer)
+        // cleanWs()
+      }
+    }
+
     stage('Checkout') {
       steps {
         git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone'
@@ -19,7 +29,6 @@ pipeline {
     stage('Prepare image tag') {
       steps {
         script {
-          // Short commit hash (Windows safe)
           def shortCommit = bat(script: 'git rev-parse --short=7 HEAD', returnStdout: true)
                             .trim()
                             .split("\r?\n")
@@ -105,20 +114,15 @@ pipeline {
     stage('Deploy to Kubernetes (Docker Desktop)') {
       steps {
         script {
-          // Create namespace if not exists
           bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
-
-          // Apply Service first
           bat 'kubectl apply -f k8s/service.yaml -n starbucks || exit 0'
 
-          // Update Deployment image or create fresh deployment
           def setImageStatus = bat(returnStatus: true, script: "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}")
           if (setImageStatus != 0) {
             bat "kubectl apply -f k8s/deployment.yaml -n starbucks"
             bat "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}"
           }
 
-          // Wait for rollout to complete
           bat "kubectl rollout status deployment/starbucks-app -n starbucks --timeout=120s"
         }
       }
@@ -131,10 +135,3 @@ pipeline {
     }
   }
 }
-
-
-//please run
-
-
-
-
