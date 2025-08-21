@@ -10,11 +10,11 @@ pipeline {
   }
 
   stages {
-    // stage('Checkout') {
-    //   steps {
-    //     git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone'
-    //   }
-    // }
+    stage('Checkout') {
+      steps {
+        git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone'
+      }
+    }
 
     stage('Prepare image tag') {
       steps {
