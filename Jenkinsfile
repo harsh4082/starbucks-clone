@@ -47,22 +47,6 @@ pipeline {
             post { always { archiveArtifacts artifacts: 'reports/owasp/**', allowEmptyArchive: true } }
         }
 
-        /*
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    echo "⚠️ SonarQube stage temporarily commented"
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                echo "⚠️ Quality Gate stage temporarily commented"
-            }
-        }
-        */
-
         stage('Build Docker Image') {
             steps {
                 script {
