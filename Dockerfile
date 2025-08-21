@@ -3,11 +3,11 @@ FROM node:18 AS build
 
 WORKDIR /app
 
-# Copy only package files first for caching
+# Copy package files first for caching
 COPY package*.json ./
 RUN npm install
 
-# Now copy the rest of the app
+# Copy rest of the source code
 COPY . .
 
 # Build production bundle
