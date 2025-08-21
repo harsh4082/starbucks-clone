@@ -2,30 +2,26 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDS    = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7') // DockerHub credentials
-        SONARQUBE_TOKEN    = credentials('sonarqube-token')                        // SonarQube token
+        DOCKERHUB_CREDS    = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')
+        SONARQUBE_TOKEN    = credentials('sonarqube-token')
         SONARQUBE_URL      = 'http://localhost:9000'
         IMAGE_NAME         = "harsh601/starbucks-clone"
-        PUSH_TO_DOCKERHUB  = "false"  // Set true to auto-push
+        PUSH_TO_DOCKERHUB  = "false"
     }
 
     stages {
         stage('Clean Workspace') {
-            steps {
-                deleteDir()
-            }
+            steps { deleteDir() }
         }
 
         stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone'
-            }
+            steps { git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone' }
         }
 
         stage('Install Dependencies') {
             steps {
                 echo "📦 Installing Node.js dependencies..."
-                bat 'npm install'
+                bat 'npm ci --legacy-peer-deps'
             }
         }
 
@@ -50,24 +46,32 @@ pipeline {
                     bat 'dependency-check.bat --project "Starbucks Clone" --scan . --format "HTML" --out reports/owasp'
                 }
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'reports/owasp/**', allowEmptyArchive: true
-                }
-            }
+            post { always { archiveArtifacts artifacts: 'reports/owasp/**', allowEmptyArchive: true } }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                    withSonarQubeEnv('SonarQube') {
-                        bat """
-                            sonar-scanner ^
-                                -Dsonar.projectKey=starbucks-clone ^
-                                -Dsonar.sources=. ^
-                                -Dsonar.host.url=${SONARQUBE_URL} ^
-                                -Dsonar.login=${SONARQUBE_TOKEN}
-                        """
+                script {
+                    def sonarReachable = true
+                    try {
+                        bat "curl -m 5 ${SONARQUBE_URL} || exit 1"
+                    } catch (err) {
+                        echo "⚠️ SonarQube not reachable, skipping analysis."
+                        sonarReachable = false
+                    }
+
+                    if (sonarReachable) {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            withSonarQubeEnv('SonarQube') {
+                                bat """
+                                    sonar-scanner ^
+                                        -Dsonar.projectKey=starbucks-clone ^
+                                        -Dsonar.sources=. ^
+                                        -Dsonar.host.url=${SONARQUBE_URL} ^
+                                        -Dsonar.login=${SONARQUBE_TOKEN}
+                                """
+                            }
+                        }
                     }
                 }
             }
@@ -75,10 +79,14 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') {  // Increased from 3 to 10 minutes
+                timeout(time: 10, unit: 'MINUTES') {
                     script {
-                        def qg = waitForQualityGate abortPipeline: false
-                        echo "🔎 Quality Gate status: ${qg.status} — continuing regardless."
+                        try {
+                            def qg = waitForQualityGate abortPipeline: false
+                            echo "🔎 Quality Gate status: ${qg.status} — continuing regardless."
+                        } catch (err) {
+                            echo "⚠️ Skipping Quality Gate check, SonarQube not reachable."
+                        }
                     }
                 }
             }
@@ -86,7 +94,11 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build -t \"${env.FULL_IMAGE}\" ."
+                script {
+                    timeout(time: 20, unit: 'MINUTES') {
+                        bat "docker build --no-cache -t \"${env.FULL_IMAGE}\" ."
+                    }
+                }
             }
         }
 
@@ -97,22 +109,16 @@ pipeline {
                     bat "trivy image --format table --output reports/trivy-report.txt ${env.FULL_IMAGE}"
                 }
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'reports/trivy-report.txt', allowEmptyArchive: true
-                }
-            }
+            post { always { archiveArtifacts artifacts: 'reports/trivy-report.txt', allowEmptyArchive: true } }
         }
 
         stage('Push Image to DockerHub (optional)') {
-            when {
-                expression { return env.PUSH_TO_DOCKERHUB == 'true' }
-            }
+            when { expression { return env.PUSH_TO_DOCKERHUB == 'true' } }
             steps {
                 bat "echo %DOCKERHUB_CREDS_PSW% | docker login -u %DOCKERHUB_CREDS_USR% --password-stdin"
                 bat "docker push ${env.FULL_IMAGE}"
             }
-        } 
+        }
 
         stage('Deploy to Kubernetes (Docker Desktop)') {
             steps {
@@ -133,8 +139,6 @@ pipeline {
     }
 
     post {
-        always {
-            echo "🎉 Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports."
-        }
+        always { echo "🎉 Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports." }
     }
 }

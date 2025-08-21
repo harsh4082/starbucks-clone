@@ -3,15 +3,15 @@ FROM node:18 AS build
 
 WORKDIR /app
 
-# Copy package files first for caching
+# Copy only package.json & package-lock.json to cache dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci --legacy-peer-deps  # faster, clean install
 
-# Copy rest of the source code
+# Copy rest of the code
 COPY . .
 
-# Build production bundle
-RUN npm run build
+# Build React app
+RUN npm run build --max_old_space_size=4096  # prevent memory issues
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
