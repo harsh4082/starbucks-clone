@@ -2,11 +2,11 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_CREDS = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')   // DockerHub credential ID
-    SONARQUBE_TOKEN = credentials('sonarqube-token')
-    SONARQUBE_URL = 'http://localhost:9000'
-    IMAGE_NAME = "harsh601/starbucks-clone"
-    PUSH_TO_DOCKERHUB = "false"
+    DOCKERHUB_CREDS = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')   // DockerHub credentials ID
+    SONARQUBE_TOKEN = credentials('sonarqube-token')                       // SonarQube token ID in Jenkins
+    SONARQUBE_URL   = 'http://localhost:9000'
+    IMAGE_NAME      = "harsh601/starbucks-clone"
+    PUSH_TO_DOCKERHUB = "false"   // Change to "true" if you want auto-push
   }
 
   stages {
@@ -19,14 +19,14 @@ pipeline {
     stage('Prepare image tag') {
       steps {
         script {
-          // Capture Git short commit without extra output (Windows-safe)
+          // Short commit hash (Windows safe)
           def shortCommit = bat(script: 'git rev-parse --short=7 HEAD', returnStdout: true)
                             .trim()
                             .split("\r?\n")
                             .last()
           env.IMAGE_TAG = shortCommit
           env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-          echo "Image will be: ${env.FULL_IMAGE}"
+          echo "✅ Docker image will be: ${env.FULL_IMAGE}"
         }
       }
     }
@@ -51,10 +51,10 @@ pipeline {
           withSonarQubeEnv('SonarQube') {
             bat """
               sonar-scanner ^
-              -Dsonar.projectKey=starbucks-clone ^
-              -Dsonar.sources=. ^
-              -Dsonar.host.url=${SONARQUBE_URL} ^
-              -Dsonar.login=${SONARQUBE_TOKEN}
+                -Dsonar.projectKey=starbucks-clone ^
+                -Dsonar.sources=. ^
+                -Dsonar.host.url=${SONARQUBE_URL} ^
+                -Dsonar.login=${SONARQUBE_TOKEN}
             """
           }
         }
@@ -65,15 +65,14 @@ pipeline {
       steps {
         timeout(time: 3, unit: 'MINUTES') {
           script {
-            // Continue pipeline regardless of quality gate result
             def qg = waitForQualityGate abortPipeline: false
-            echo "Quality Gate status: ${qg.status} — continuing regardless of result."
+            echo "🔎 Quality Gate status: ${qg.status} — continuing regardless."
           }
         }
       }
     }
 
-    stage('Build Docker Image (full rebuild)') {
+    stage('Build Docker Image') {
       steps {
         bat "docker build --no-cache -t \"${env.FULL_IMAGE}\" ."
       }
@@ -103,18 +102,23 @@ pipeline {
       }
     }
 
-    stage('Deploy to local Kubernetes (Docker Desktop)') {
+    stage('Deploy to Kubernetes (Docker Desktop)') {
       steps {
         script {
+          // Create namespace if not exists
           bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
+
+          // Apply Service first
           bat 'kubectl apply -f k8s/service.yaml -n starbucks || exit 0'
 
+          // Update Deployment image or create fresh deployment
           def setImageStatus = bat(returnStatus: true, script: "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}")
           if (setImageStatus != 0) {
             bat "kubectl apply -f k8s/deployment.yaml -n starbucks"
             bat "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}"
           }
 
+          // Wait for rollout to complete
           bat "kubectl rollout status deployment/starbucks-app -n starbucks --timeout=120s"
         }
       }
@@ -123,8 +127,7 @@ pipeline {
 
   post {
     always {
-      echo "Pipeline finished. Check Jenkins artifacts for OWASP and Trivy outputs."
+      echo "🎉 Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports."
     }
   }
 }
-
