@@ -86,7 +86,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build --no-cache -t \"${env.FULL_IMAGE}\" ."
+                bat "docker build -t \"${env.FULL_IMAGE}\" ."
             }
         }
 
@@ -112,7 +112,7 @@ pipeline {
                 bat "echo %DOCKERHUB_CREDS_PSW% | docker login -u %DOCKERHUB_CREDS_USR% --password-stdin"
                 bat "docker push ${env.FULL_IMAGE}"
             }
-        }
+        } 
 
         stage('Deploy to Kubernetes (Docker Desktop)') {
             steps {
