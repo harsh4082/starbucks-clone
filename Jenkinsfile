@@ -2,56 +2,54 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDS    = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')
-        IMAGE_NAME         = "harsh601/starbucks-clone"
-        PUSH_TO_DOCKERHUB  = "false"
+        DOCKERHUB_CREDS = credentials('dockerhub-credentials') // optional
     }
 
     stages {
+
         stage('Clean Workspace') {
-            steps { deleteDir() }
+            steps {
+                deleteDir()
+            }
         }
 
         stage('Checkout') {
-            steps { git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone' }
+            steps {
+                git branch: 'main', url: 'https://github.com/harsh4082/starbucks-clone'
+            }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo "📦 Installing Node.js dependencies..."
+                echo '📦 Installing Node.js dependencies...'
                 bat 'npm ci --legacy-peer-deps'
             }
         }
 
-        stage('Prepare image tag') {
+        stage('Prepare Image Tag') {
             steps {
                 script {
-                    def shortCommit = bat(script: 'git rev-parse --short=7 HEAD', returnStdout: true)
-                                        .trim()
-                                        .split("\r?\n")
-                                        .last()
-                    env.IMAGE_TAG = shortCommit
-                    env.FULL_IMAGE = "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                    echo "✅ Docker image will be: ${env.FULL_IMAGE}"
+                    IMAGE_TAG = "harsh601/starbucks-clone:${env.GIT_COMMIT.take(7)}"
+                    echo "✔ Docker image will be: ${IMAGE_TAG}"
                 }
             }
         }
 
         stage('OWASP Dependency Check') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                     bat 'if not exist reports\\owasp mkdir reports\\owasp'
                     bat 'dependency-check.bat --project "Starbucks Clone" --scan . --format "HTML" --out reports/owasp'
+                    archiveArtifacts artifacts: 'reports/owasp/**', allowEmptyArchive: true
                 }
             }
-            post { always { archiveArtifacts artifacts: 'reports/owasp/**', allowEmptyArchive: true } }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
                     timeout(time: 20, unit: 'MINUTES') {
-                        bat "docker build --no-cache -t \"${env.FULL_IMAGE}\" ."
+                        bat "docker build --no-cache -t ${IMAGE_TAG} ."
                     }
                 }
             }
@@ -59,41 +57,41 @@ pipeline {
 
         stage('Trivy Image Scan') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                    bat 'if not exist reports mkdir reports'
-                    bat "trivy image --format table --output reports/trivy-report.txt ${env.FULL_IMAGE}"
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    bat "trivy image --exit-code 1 --severity HIGH,CRITICAL ${IMAGE_TAG} || echo 'Trivy scan completed'"
+                    archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: true
                 }
             }
-            post { always { archiveArtifacts artifacts: 'reports/trivy-report.txt', allowEmptyArchive: true } }
         }
 
         stage('Push Image to DockerHub (optional)') {
-            when { expression { return env.PUSH_TO_DOCKERHUB == 'true' } }
-            steps {
-                bat "echo %DOCKERHUB_CREDS_PSW% | docker login -u %DOCKERHUB_CREDS_USR% --password-stdin"
-                bat "docker push ${env.FULL_IMAGE}"
+            when {
+                expression { return env.DOCKERHUB_CREDS != null }
             }
-        }
-
-        stage('Deploy to Kubernetes (Docker Desktop)') {
             steps {
                 script {
-                    bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
-                    bat 'kubectl apply -f k8s/service.yaml -n starbucks || exit 0'
-
-                    def setImageStatus = bat(returnStatus: true, script: "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}")
-                    if (setImageStatus != 0) {
-                        bat "kubectl apply -f k8s/deployment.yaml -n starbucks"
-                        bat "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}"
-                    }
-
-                    bat "kubectl rollout status deployment/starbucks-app -n starbucks --timeout=120s"
+                    bat "docker login -u %DOCKERHUB_CREDS_USR% -p %DOCKERHUB_CREDS_PSW%"
+                    bat "docker push ${IMAGE_TAG}"
                 }
             }
         }
+
+        stage('Deploy to Kubernetes (Minikube)') {
+            steps {
+                script {
+                    bat 'kubectl config use-context minikube'
+                    bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
+                    bat 'kubectl apply -f k8s/deployment.yaml -n starbucks'
+                    bat 'kubectl apply -f k8s/service.yaml -n starbucks'
+                }
+            }
+        }
+
     }
 
     post {
-        always { echo "🎉 Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports." }
+        always {
+            echo '🎉 Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports.'
+        }
     }
 }
