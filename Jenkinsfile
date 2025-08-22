@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME        = "harsh601/starbucks-clone"
-        PUSH_TO_DOCKERHUB = "false"
+        PUSH_TO_DOCKERHUB = "true"  // ✅ always push now
     }
 
     stages {
@@ -66,8 +66,7 @@ pipeline {
             post { always { archiveArtifacts artifacts: 'reports/trivy-report.txt', allowEmptyArchive: true } }
         }
 
-        stage('Push Image to DockerHub (optional)') {
-            when { expression { return env.PUSH_TO_DOCKERHUB == 'true' } }
+        stage('Push Image to DockerHub') {
             environment {
                 DOCKERHUB_CREDS = credentials('cdf2d8a8-0d10-4cc3-b4a4-c4dadaa591c7')
             }
@@ -87,13 +86,12 @@ pipeline {
                         bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f - --validate=false'
                         bat 'kubectl apply -f k8s/service.yaml -n starbucks || exit 0'
 
-                        def setImageStatus = bat(returnStatus: true, script: "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}")
-                        if (setImageStatus != 0) {
-                            bat "kubectl apply -f k8s/deployment.yaml -n starbucks"
-                            bat "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}"
-                        }
+                        // Always ensure deployment exists & updated
+                        bat "kubectl apply -f k8s/deployment.yaml -n starbucks"
+                        bat "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}"
 
-                        bat "kubectl rollout status deployment/starbucks-app -n starbucks --timeout=120s"
+                        // Wait longer for rollout (was failing at 120s)
+                        bat "kubectl rollout status deployment/starbucks-app -n starbucks --timeout=300s"
                     }
                 }
             }
