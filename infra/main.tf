@@ -15,9 +15,7 @@ provider "aws" {
   region = "ap-south-1"   # ✅ Change to your AWS region
 }
 
-
 # VPC (using AWS VPC module)
-
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.5.1"
@@ -37,9 +35,7 @@ module "vpc" {
   }
 }
 
-
 # EKS Cluster
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.8.4"
@@ -51,6 +47,10 @@ module "eks" {
 
   # Control plane logging
   cluster_enabled_log_types = ["api", "audit", "authenticator"]
+
+  cluster_endpoint_public_access       = true
+  cluster_endpoint_private_access      = false
+  cluster_endpoint_public_access_cidrs = ["43.243.83.38/32"]   # 👈 your IP
 
   eks_managed_node_groups = {
     default = {
@@ -71,7 +71,6 @@ module "eks" {
 
 
 # Outputs
-
 output "cluster_name" {
   value = module.eks.cluster_name
 }

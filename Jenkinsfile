@@ -79,14 +79,18 @@ pipeline {
             }
         }
 
-        stage('Deploy to EKS') {
+        stage('Deploy to Minikube') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-eks', variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
                     script {
-                        bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f -'
+                        bat 'kubectl create namespace starbucks --dry-run=client -o yaml | kubectl apply -f - --validate=false'
                         bat 'kubectl apply -f k8s/service.yaml -n starbucks || exit 0'
+
+                        // Always ensure deployment exists & updated
                         bat "kubectl apply -f k8s/deployment.yaml -n starbucks"
                         bat "kubectl -n starbucks set image deployment/starbucks-app starbucks-app=${env.FULL_IMAGE}"
+
+                        // Wait longer for rollout (was failing at 120s)
                         bat "kubectl rollout status deployment/starbucks-app -n starbucks --timeout=300s"
                     }
                 }
