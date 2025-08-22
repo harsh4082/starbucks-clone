@@ -17,3 +17,5 @@ infra/.terraform/
 
 /.scannerwork
 /coverage
+
+/infra
