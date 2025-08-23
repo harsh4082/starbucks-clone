@@ -4,7 +4,7 @@ metadata:
   name: starbucks-app
   namespace: starbucks
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: starbucks-app
