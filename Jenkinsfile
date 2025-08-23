@@ -99,7 +99,7 @@ pipeline {
     }
 
     post {
-        always { echo "🎉 Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports." }
+        always { echo "Pipeline finished. Check Jenkins artifacts for OWASP & Trivy reports." }
     }
 }
 
